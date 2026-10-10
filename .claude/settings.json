@@ -14,7 +14,7 @@
       "WebFetch(domain:nodejs.org)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:expressjs.com)",
-      "Write(capscan-reports/**)"
+      "Edit(capscan-reports/**)"
     ],
     "deny": [
       "Bash(git push:*)",
