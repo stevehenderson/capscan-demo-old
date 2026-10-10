@@ -25,6 +25,10 @@ network:
     - hub.docker.com
 
 tools:
+  # gh-proxy avoids starting the Docker-based GitHub MCP server, which this sweep does not need.
+  github:
+    mode: gh-proxy
+    toolsets: [context, repos]
   web-fetch:
   bash: [cat, head, grep, find, wc, jq]
 
