@@ -32,7 +32,8 @@ tools:
     mode: gh-proxy
     toolsets: [context, repos, pull_requests]
   web-fetch:
-  bash: [cat, head, grep, find, wc, jq, "gh release view", "gh release list", "gh pr view", "gh pr diff"]
+  edit:
+  bash: [cat, head, grep, find, wc, jq, "gh release view", "gh release list", "gh pr view", "gh pr diff", ".github/capscan/verify-report.sh"]
 
 steps:
   - name: Read Dependabot metadata
@@ -76,5 +77,9 @@ Follow the rules in `.github/capscan/RULES.md` exactly.
 - If `update_type` in `capscan-input/dependabot.json` is `version-update:semver-patch`, call `noop`.
   Patch releases rarely add capabilities.
 - Read release notes with `gh release view` or `web-fetch`, and read this repository's code with `cat`, `grep`, and `find`.
-- Post the report with a single `add_comment`.
-  A verification step checks every `path:line` citation and every link before the comment is published, so cite only lines you have read.
+- Before posting, write the report to `/tmp/gh-aw/capscan-draft.md` and check it with
+  `.github/capscan/verify-report.sh /tmp/gh-aw/capscan-draft.md github.com docs.github.com go.dev pkg.go.dev nodejs.org www.npmjs.com docs.npmjs.com expressjs.com hub.docker.com`.
+  Fix every error it reports and run it again until it passes.
+  Paths are relative to the repository root, so write `go-inventory/go.mod:3`, never `go.mod:3`.
+- Post the verified report with a single `add_comment`.
+  The same check runs again before the comment is published, and a report that fails it is not posted.

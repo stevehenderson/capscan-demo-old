@@ -30,7 +30,8 @@ tools:
     mode: gh-proxy
     toolsets: [context, repos]
   web-fetch:
-  bash: [cat, head, grep, find, wc, jq]
+  edit:
+  bash: [cat, head, grep, find, wc, jq, ".github/capscan/verify-report.sh"]
 
 # Every step that needs a shell or the network runs here, before the agent starts.
 steps:
@@ -72,10 +73,9 @@ steps:
       go list -m -u -f '{{if and (not .Indirect) .Update}}{{.Path}} {{.Version}} -> {{.Update.Version}}{{end}}' all \
         > ../capscan-input/go-updates.txt
 
-  - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-    with:
-      node-version-file: node-catalog/.nvmrc
-
+  # These steps use the runner's default Node on purpose. Installing the project's Node 18 here
+  # leaves it on PATH for gh-aw's own scripts, and Node 18 fails the MCP gateway health check
+  # because it resolves localhost to ::1 without falling back to 127.0.0.1.
   - name: "Node: versions, outdated packages, and audit"
     working-directory: node-catalog
     run: |
@@ -128,5 +128,10 @@ The `capscan-input` directory holds facts gathered before you started:
 Report reachable vulnerabilities first.
 Then review capabilities gated by the `go` directive, the Node version (`.nvmrc`, `engines`, and the Dockerfile), and the outdated direct dependencies.
 
-Create one issue titled with today's date, such as `weekly sweep 2026-10-12`, with the report as its body.
-A verification step checks every `path:line` citation and every link before the issue is created, so cite only lines you have read.
+Before creating the issue, write the report to `/tmp/gh-aw/capscan-draft.md` and check it with
+`.github/capscan/verify-report.sh /tmp/gh-aw/capscan-draft.md github.com docs.github.com go.dev pkg.go.dev nodejs.org www.npmjs.com docs.npmjs.com expressjs.com hub.docker.com`.
+Fix every error it reports and run it again until it passes.
+Paths are relative to the repository root, so write `go-inventory/go.mod:3`, never `go.mod:3`.
+The same check runs again before the issue is created, and a report that fails it is not published.
+
+Create one issue titled with today's date, such as `weekly sweep 2026-10-12`, with the verified report as its body.
