@@ -27,6 +27,16 @@ Dependabot and the security tooling own vulnerability review; capscan runs along
 - When enabling a capability means raising a version gate, list every other default that changes with it,
   security-relevant defaults (TLS, certificate parsing, cryptography) first.
 
+## Check every direct dependency
+- Every direct dependency is a candidate for removal.
+  For each one in the dependency inventory, ask whether the language, runtime, or standard library at the target version
+  now provides what this repository uses it for, and read the import sites to decide.
+- When it does, report a Replace finding that names the dependency, the built-in that replaces it, the version gate,
+  and every behavior the dependency provided that the built-in does not, such as input validation, path cleaning,
+  or middleware attached to a group of routes.
+- When a version gate holds back a feature that could replace a dependency, report it as a capability,
+  even though the code does not use that feature today.
+
 ## Classify and size
 - Classify each finding as Replace, Simplify, Opt-in performance, New primitive, or Deprecation path.
 - Estimate refactor size as S (under a day), M (a few days), or L (a week or more).
@@ -34,7 +44,9 @@ Dependabot and the security tooling own vulnerability review; capscan runs along
 
 ## Report format
 - Start the report with a level-two heading: `## capscan`.
-- Report at most five findings, ranked by value to this repository.
+- Report at most five findings.
+  After security, rank findings that remove a direct dependency first, then the rest by value to this repository.
+- If more findings qualify, list their titles in one line that starts with `Also found:`, so nothing is dropped silently.
 - If nothing qualifies, write one line saying so.
 - Use this template for each finding:
 

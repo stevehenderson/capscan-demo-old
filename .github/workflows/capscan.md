@@ -47,6 +47,16 @@ steps:
       mkdir -p capscan-input
       jq -n --arg type "$UPDATE_TYPE" --argjson updates "$UPDATES" \
         '{update_type: $type, updates: $updates}' > capscan-input/dependabot.json
+  - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+    with:
+      go-version: stable
+      cache: false
+  # The runner's default Node is used on purpose; see the note in capscan-sweep.md.
+  - name: Install npm packages without running their scripts
+    working-directory: node-catalog
+    run: npm ci --ignore-scripts
+  - name: Gather facts
+    run: .github/capscan/gather-facts.sh capscan-input
 
 safe-outputs:
   add-comment:
@@ -71,12 +81,17 @@ safe-outputs:
 
 Review pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
 Dependabot opened it, and `capscan-input/dependabot.json` lists the updated dependencies with their previous and new versions.
+The rest of `capscan-input` holds facts gathered before you started, including `dependencies.md`,
+which lists every direct dependency with the lines that use it, and `govulncheck.txt`.
 
 Follow the rules in `.github/capscan/RULES.md` exactly.
 
 - If `update_type` in `capscan-input/dependabot.json` is `version-update:semver-patch`, call `noop`.
   Patch releases rarely add capabilities.
 - Read release notes with `gh release view` or `web-fetch`, and read this repository's code with `cat`, `grep`, and `find`.
+- Apply the "Check every direct dependency" rule to the dependencies that this update's new version could replace.
+  When the update moves a language or runtime, such as a Go or Node base image, that means every entry in `dependencies.md`
+  for the affected service.
 - Before posting, write the report to `/tmp/gh-aw/capscan-draft.md` and check it with
   `.github/capscan/verify-report.sh /tmp/gh-aw/capscan-draft.md github.com docs.github.com go.dev pkg.go.dev nodejs.org www.npmjs.com docs.npmjs.com expressjs.com hub.docker.com`.
   Fix every error it reports and run it again until it passes.

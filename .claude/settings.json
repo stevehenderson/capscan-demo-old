@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.github/capscan/gather-facts.sh:*)",
+      "Bash(.github/capscan/verify-report.sh:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh release view:*)",
+      "Bash(gh release list:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:go.dev)",
+      "WebFetch(domain:pkg.go.dev)",
+      "WebFetch(domain:nodejs.org)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:expressjs.com)",
+      "Write(capscan-reports/**)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr review:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh api:*)",
+      "Bash(npm install:*)",
+      "Bash(npm i:*)"
+    ]
+  }
+}
