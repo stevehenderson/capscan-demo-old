@@ -2,7 +2,7 @@
 description: Review each Dependabot pull request for new capabilities this repository could adopt.
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
   bots: ["dependabot[bot]"]
 if: github.event.pull_request.user.login == 'dependabot[bot]'
 
