@@ -9,12 +9,14 @@ shift
 [ -s "$report" ] || exit 0
 
 status=0
-while IFS=: read -r path line; do
-  if [ ! -f "$path" ] || [ "$(awk 'END { print NR }' "$path")" -lt "$line" ]; then
-    echo "::error::report cites $path:$line, which does not exist"
+# Citations are `path:line` or `path:start-end`; a range is checked against its last line.
+while IFS=: read -r path lines; do
+  last=${lines#*-}
+  if [ ! -f "$path" ] || [ "$(awk 'END { print NR }' "$path")" -lt "$last" ]; then
+    echo "::error::report cites $path:$lines, which does not exist"
     status=1
   fi
-done < <(grep -oE '`[A-Za-z0-9_./-]+:[0-9]+`' "$report" | tr -d '`' | sort -u)
+done < <(grep -oE '`[A-Za-z0-9_./-]+:[0-9]+(-[0-9]+)?`' "$report" | tr -d '`' | sort -u)
 
 while read -r host; do
   allowed=0
