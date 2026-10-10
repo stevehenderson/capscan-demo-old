@@ -1,0 +1,96 @@
+name: capscan
+
+# Reviews each Dependabot pull request for new capabilities this repository could adopt.
+# The agent runs with a read-only token and no shell; only the comment job can write.
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions: {}
+
+concurrency:
+  group: capscan-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  ALLOWED_HOSTS: github.com docs.github.com go.dev pkg.go.dev nodejs.org www.npmjs.com docs.npmjs.com expressjs.com hub.docker.com
+
+jobs:
+  meta:
+    name: Read Dependabot metadata
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read # read the PR's commits for fetch-metadata
+    outputs:
+      update-type: ${{ steps.meta.outputs.update-type }}
+      updates: ${{ steps.meta.outputs.updated-dependencies-json }}
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+  scan:
+    name: Scan for capabilities
+    needs: meta
+    # Patch releases rarely add features; skip them to save cost.
+    if: needs.meta.outputs.update-type != 'version-update:semver-patch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # the agent reads the checkout
+      pull-requests: read # the action reads PR context
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The job's read-only token. Without it the action requests an OIDC token
+          # and exchanges it for a Claude GitHub App token.
+          github_token: ${{ github.token }}
+          allowed_bots: "dependabot[bot]"
+          prompt: |
+            Follow the rules in .github/capscan/RULES.md exactly.
+            Repository: ${{ github.repository }}
+            Pull request: #${{ github.event.pull_request.number }}
+            Updated dependencies, as reported by Dependabot:
+            ${{ needs.meta.outputs.updates }}
+            Write the report to capscan-report.md in the repository root.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 30
+            --allowedTools "Read,Grep,Glob,Write,Bash(gh release view:*),Bash(gh release list:*),WebFetch(domain:github.com),WebFetch(domain:docs.github.com),WebFetch(domain:go.dev),WebFetch(domain:pkg.go.dev),WebFetch(domain:nodejs.org),WebFetch(domain:www.npmjs.com),WebFetch(domain:docs.npmjs.com),WebFetch(domain:expressjs.com),WebFetch(domain:hub.docker.com)"
+
+      - name: Verify citations and links
+        run: .github/capscan/verify-report.sh capscan-report.md $ALLOWED_HOSTS
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capscan-report
+          path: capscan-report.md
+          if-no-files-found: ignore
+
+  comment:
+    name: Post the report
+    needs: scan
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # the only write permission, held by a job that never runs the agent
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: capscan-report
+
+      - name: Post the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -s capscan-report.md ]; then
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file capscan-report.md
+          fi

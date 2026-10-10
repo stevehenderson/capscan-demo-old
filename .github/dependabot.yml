@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /go-inventory
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+
+  - package-ecosystem: npm
+    directory: /node-catalog
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: [/go-inventory, /node-catalog]
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]

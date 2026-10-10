@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read # read the checkout only
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-inventory:
+    name: go-inventory tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go-inventory
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go-inventory/go.mod
+          cache-dependency-path: go-inventory/go.sum
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  node-catalog:
+    name: node-catalog tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: node-catalog
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: node-catalog/.nvmrc
+      - run: npm ci --ignore-scripts
+      - run: npm test

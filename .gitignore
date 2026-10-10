@@ -1,0 +1,4 @@
+node_modules/
+.env
+capscan-report.md
+capscan-input/
