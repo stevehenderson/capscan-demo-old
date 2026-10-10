@@ -14,8 +14,10 @@ capscan answers what the change unlocks for this codebase, grounded in specific 
 | `node-catalog/` | A small Express API that uses `dotenv`, `node-fetch`, `nodemon`, and `jest`, pinned to Node 18 |
 | `.github/capscan/RULES.md` | The agent rules that define a capability review |
 | `.github/capscan/verify-report.sh` | Checks every cited `path:line` and link before a report is posted |
-| `.github/workflows/capscan.yml` | Runs on each Dependabot pull request and comments with the report |
-| `.github/workflows/capscan-sweep.yml` | Runs weekly and opens an issue covering version gates and drift that no Dependabot PR surfaces |
+| `.github/workflows/capscan.md` | A [GitHub Agentic Workflow](https://github.github.com/gh-aw/) that runs on each Dependabot pull request and comments with the report |
+| `.github/workflows/capscan-sweep.md` | An agentic workflow that runs weekly and opens an issue covering version gates and drift that no Dependabot PR surfaces |
+| `.github/workflows/*.lock.yml` | The GitHub Actions workflows compiled from the Markdown files by `gh aw compile` |
+| `examples/claude-code-action/` | The same two workflows built directly on `anthropics/claude-code-action`, for comparison |
 | `AGENTS.md` | Points interactive coding agents at the same rules |
 
 ## The drift is intentional
@@ -30,28 +32,37 @@ Both services are written the way many real services were written a few years ag
 
 ## How the workflows are built
 
-- The agent job has a read-only token and no shell.
-  It can read the checkout, query GitHub releases, and fetch documentation from an allowlist of hosts.
-- Only the comment and issue jobs can write, and they never run the agent.
-- The sweep gathers facts first (govulncheck, a GODEBUG diff, `npm outdated`, `npm audit`, Node and Go versions) and passes them to the agent as files.
-- Every report must pass `verify-report.sh` before it is posted.
+The workflows use GitHub Agentic Workflows with the Copilot engine.
+The framework enforces most of the capscan design:
+
+- The agent job is read-only, and its network egress goes through a firewall that allows only the hosts listed under `network:`.
+- The agent's only write path is a declared safe output: one `add-comment` on the triggering pull request, or one `create-issue` for the sweep.
+  A separate job applies it after a threat-detection pass.
+- The shell available to the agent is limited to the commands listed under `tools.bash`.
+- Fixed steps gather facts before the agent starts (Dependabot metadata, govulncheck, a GODEBUG diff, `npm outdated`, `npm audit`, Node and Go versions) and pass them to the agent as files.
+- Every report must pass `verify-report.sh` in the safe-outputs job before it is published.
   The script confirms that cited lines exist and that links use allowed hosts; it does not confirm that the claims in the report are correct, so a person still reviews each finding.
-- All actions are pinned to commit SHAs, and Dependabot keeps the pins current.
+- Actions and containers in the compiled lock files are pinned to commit SHAs and digests.
+
+After editing a workflow's Markdown, recompile with `gh aw compile` and commit both files.
 
 ## Running it in another repository
 
-1. Copy `.github/capscan/`, the two capscan workflows, and the `AGENTS.md` pointer.
-2. Adjust the WebFetch domains and `ALLOWED_HOSTS` for the ecosystems in use.
-3. Add an Anthropic API key as both a Dependabot secret and an Actions secret.
-   Workflows triggered by Dependabot can read only Dependabot secrets.
-   I recommend a dedicated key in its own workspace with a spend limit.
+1. Install the CLI with `gh extension install github/gh-aw`.
+2. Copy `.github/capscan/`, the two capscan Markdown workflows, and the `AGENTS.md` pointer.
+3. Adjust `network.allowed` and the host list passed to `verify-report.sh` for the ecosystems in use, and replace the Go and Node fact-gathering steps in the sweep.
+4. Run `gh aw compile` and commit the Markdown and lock files.
+5. Add a token for the engine.
+   On a personal repository, the Copilot engine needs a fine-grained personal access token with the Copilot Requests permission, stored as `COPILOT_GITHUB_TOKEN`.
+   Organizations with Copilot billing can use the built-in token with `copilot-requests: write` instead.
+   Workflows triggered by Dependabot can read only Dependabot secrets, so the token goes in both stores:
 
    ```console
-   gh secret set ANTHROPIC_API_KEY --app dependabot
-   gh secret set ANTHROPIC_API_KEY --app actions
+   gh secret set COPILOT_GITHUB_TOKEN --app dependabot
+   gh secret set COPILOT_GITHUB_TOKEN --app actions
    ```
 
-4. Replace the Go and Node fact-gathering steps in the sweep with the equivalents for the stack in use.
+To use Claude, Codex, or Gemini, change `engine:` and set that engine's secret.
 
 ## Local development
 
