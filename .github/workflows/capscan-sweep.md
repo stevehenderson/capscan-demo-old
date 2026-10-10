@@ -44,9 +44,18 @@ steps:
       go-version-file: go-inventory/go.mod
       cache: false
 
+  # govulncheck itself needs a recent Go to build, so it is installed with the latest toolchain
+  # and then run under the project's toolchain, which decides the standard library version it checks.
   - name: "Go: reachable vulnerabilities"
     working-directory: go-inventory
-    run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./... > ../capscan-input/govulncheck.txt 2>&1 || true
+    run: |
+      latest=$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)
+      GOTOOLCHAIN=$latest go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+      # Exit code 3 means vulnerabilities were found, which is a result; anything else is a failure.
+      rc=0
+      "$(go env GOPATH)/bin/govulncheck" ./... > ../capscan-input/govulncheck.txt 2>&1 || rc=$?
+      cat ../capscan-input/govulncheck.txt
+      [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ] || exit "$rc"
 
   - name: "Go: GODEBUG defaults at the current and latest go directive"
     working-directory: go-inventory
